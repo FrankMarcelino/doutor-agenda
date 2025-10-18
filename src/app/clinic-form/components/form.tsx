@@ -1,11 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader } from "lucide-react";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { useForm } from "react-hook-form";
 import z from "zod";
 
+import { createClinic } from "@/actions/create-clinic";
 import { Button } from "@/components/ui/button";
-import { DialogClose, DialogFooter } from "@/components/ui/dialog";
+import { DialogFooter } from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -28,8 +31,15 @@ const ClinicForm = () => {
     },
   });
 
-  const onSubmit = (data: z.infer<typeof clinicFormSchema>) => {
-    console.log(data);
+  const onSubmit = async (data: z.infer<typeof clinicFormSchema>) => {
+    try {
+      await createClinic(data.name);
+    } catch (error) {
+      if (isRedirectError(error)) {
+        return;
+      }
+      console.error("Error creating clinic:", error);
+    }
   };
 
   return (
@@ -50,7 +60,13 @@ const ClinicForm = () => {
             )}
           />
           <DialogFooter>
-            <Button type="submit">Criar clínica</Button>
+            <Button type="submit" disabled={!form.formState.isValid}>
+              {form.formState.isSubmitting ? (
+                <Loader className="h-4 w-4 animate-spin" />
+              ) : (
+                "Criar clínica"
+              )}
+            </Button>
           </DialogFooter>
         </form>
       </Form>
