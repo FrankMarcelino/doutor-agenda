@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import z from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -59,9 +60,14 @@ const SignUpForm = () => {
         onSuccess: () => {
           router.push("/dashboard");
         },
-        onError: (error) => {
-          // Lidar com erros, talvez mostrar uma notificação
-          console.error("Erro ao criar conta:", error);
+        onError: (ctx) => {
+          console.log(ctx.error);
+          if (ctx.error.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
+            toast.error("Usuário já existe. Tente usar outro email.");
+            return;
+          } else {
+            toast.error("Falha ao criar conta. Tente novamente.");
+          }
         },
       },
     );
