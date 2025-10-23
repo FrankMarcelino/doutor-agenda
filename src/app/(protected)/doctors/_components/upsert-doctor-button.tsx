@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { NumericFormat } from "react-number-format";
 import z from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,30 @@ const UpsertDoctorForm = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="appointmentPrice"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Preço da consulta</FormLabel>
+                <NumericFormat
+                  value={field.value}
+                  onValueChange={(value) => {
+                    field.onChange(value.floatValue);
+                  }}
+                  decimalScale={2}
+                  fixedDecimalScale
+                  decimalSeparator=","
+                  allowNegative={false}
+                  allowLeadingZeros={false}
+                  thousandSeparator="."
+                  customInput={Input}
+                  prefix="R$"
+                />
                 <FormMessage />
               </FormItem>
             )}
