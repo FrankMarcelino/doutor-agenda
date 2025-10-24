@@ -8,10 +8,10 @@ import { appointmentsTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { actionClient } from "@/lib/next-safe-action";
 
-import { createAppointmentSchema } from "./schema";
+import { upsertAppointmentSchema } from "./schema";
 
-export const createAppointment = actionClient
-  .schema(createAppointmentSchema)
+export const upsertAppointment = actionClient
+  .schema(upsertAppointmentSchema)
   .action(async ({ parsedInput }) => {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -22,10 +22,19 @@ export const createAppointment = actionClient
     if (!session?.user.clinic?.id) {
       throw new Error("Clinic not found");
     }
-    await db.insert(appointmentsTable).values({
-      ...parsedInput,
-      clinicId: session?.user.clinic?.id,
-    });
+    await db
+      .insert(appointmentsTable)
+      .values({
+        ...parsedInput,
+        id: parsedInput.id,
+        clinicId: session?.user.clinic?.id,
+      })
+      .onConflictDoUpdate({
+        target: [appointmentsTable.id],
+        set: {
+          ...parsedInput,
+        },
+      });
     revalidatePath("/appointments");
   });
 

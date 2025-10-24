@@ -3,12 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import dayjs from "dayjs";
 import { useAction } from "next-safe-action/hooks";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { createAppointment } from "@/actions/create-appointment";
+import { upsertAppointment } from "@/actions/upsert-appointment";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { doctorsTable, patientsTable } from "@/db/schema";
+import { appointmentsTable, doctorsTable, patientsTable } from "@/db/schema";
 
 const formSchema = z.object({
   patientId: z.string().min(1, {
@@ -48,35 +48,47 @@ const formSchema = z.object({
   }),
 });
 
-interface CreateAppointmentFormProps {
+interface UpsertAppointmentFormProps {
+  appointment?: typeof appointmentsTable.$inferSelect;
   patients: Array<typeof patientsTable.$inferSelect>;
   doctors: Array<typeof doctorsTable.$inferSelect>;
   onSuccess?: () => void;
 }
 
-const CreateAppointmentForm = ({
+const UpsertAppointmentForm = ({
+  appointment,
   patients,
   doctors,
   onSuccess,
-}: CreateAppointmentFormProps) => {
+}: UpsertAppointmentFormProps) => {
+  const appointmentDate = appointment?.date
+    ? dayjs(appointment.date)
+    : undefined;
+
   const form = useForm<z.infer<typeof formSchema>>({
     shouldUnregister: true,
     resolver: zodResolver(formSchema),
     defaultValues: {
-      patientId: "",
-      doctorId: "",
-      date: undefined,
-      time: "",
+      patientId: appointment?.patientId ?? "",
+      doctorId: appointment?.doctorId ?? "",
+      date: appointment?.date ? new Date(appointment.date) : undefined,
+      time: appointmentDate
+        ? `${appointmentDate.format("HH")}:${appointmentDate.format("mm")}`
+        : "",
     },
   });
 
-  const createAppointmentAction = useAction(createAppointment, {
+  const upsertAppointmentAction = useAction(upsertAppointment, {
     onSuccess: () => {
-      toast.success("Agendamento criado com sucesso.");
+      toast.success(
+        appointment
+          ? "Agendamento atualizado com sucesso."
+          : "Agendamento criado com sucesso.",
+      );
       onSuccess?.();
     },
     onError: () => {
-      toast.error("Erro ao criar agendamento.");
+      toast.error("Erro ao salvar agendamento.");
     },
   });
 
@@ -114,28 +126,40 @@ const CreateAppointmentForm = ({
     return times;
   }, [selectedDoctor]);
 
+  // Reseta o horário quando o médico muda
+  useEffect(() => {
+    if (watchedDoctorId && !appointment) {
+      form.setValue("time", "");
+    }
+  }, [watchedDoctorId, form, appointment]);
+
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     // Combina data e hora
     const [hours, minutes] = values.time.split(":").map(Number);
-    const appointmentDate = dayjs(values.date)
+    const appointmentDateTime = dayjs(values.date)
       .set("hour", hours)
       .set("minute", minutes)
       .set("second", 0)
       .toDate();
 
-    createAppointmentAction.execute({
+    upsertAppointmentAction.execute({
+      id: appointment?.id,
       patientId: values.patientId,
       doctorId: values.doctorId,
-      date: appointmentDate,
+      date: appointmentDateTime,
     });
   };
 
   return (
-    <DialogContent>
+    <DialogContent key={appointment?.id ?? "new"}>
       <DialogHeader>
-        <DialogTitle>Novo agendamento</DialogTitle>
+        <DialogTitle>
+          {appointment ? "Editar agendamento" : "Novo agendamento"}
+        </DialogTitle>
         <DialogDescription>
-          Crie um novo agendamento para um paciente.
+          {appointment
+            ? "Edite as informações desse agendamento."
+            : "Crie um novo agendamento para um paciente."}
         </DialogDescription>
       </DialogHeader>
       <Form {...form}>
@@ -239,10 +263,12 @@ const CreateAppointmentForm = ({
           />
 
           <DialogFooter>
-            <Button type="submit" disabled={createAppointmentAction.isPending}>
-              {createAppointmentAction.isPending
-                ? "Criando..."
-                : "Criar agendamento"}
+            <Button type="submit" disabled={upsertAppointmentAction.isPending}>
+              {upsertAppointmentAction.isPending
+                ? "Salvando..."
+                : appointment
+                  ? "Salvar"
+                  : "Criar agendamento"}
             </Button>
           </DialogFooter>
         </form>
@@ -251,4 +277,4 @@ const CreateAppointmentForm = ({
   );
 };
 
-export default CreateAppointmentForm;
+export default UpsertAppointmentForm;
